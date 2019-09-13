@@ -7,7 +7,42 @@ from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 import time
 import librosa, librosa.display
+sr=40000
+def fitMels(signals,t="unknown_drum",num_feats=2):
+    def getFeat(x):
+        X = librosa.feature.melspectrogram(S=x,n_mels=num_feats, sr=sr,)
+        return X
+    feats=[]
+    for s in signals:
+        features=getFeat(s)
+        feats.append(features)
+    df=pd.DataFrame(feats)
+    feat_cols=[ 'feat'+str(i) for i in range(df.shape[1])]
+    df.columns=feat_cols
+    df["label"]=t
+    return df
 
+def fitFreq(signals,t="unknown_drum",frameLen=1000,hopLen=4,num_feats=2,numFrames=4):
+    hopLen=frameLen-1
+    def getFeat(x):
+        fs=madmom.audio.signal.FramedSignal(x, sample_rate=48000,
+            frame_size=frameLen,hop_size=hopLen)
+        feat=np.zeros(frameLen)
+        for frame in fs[0:numFrames]:
+            X=np.absolute(scipy.fft(frame))
+            feat+=X
+#             print(len(X))
+        return feat
+    onsets=[]
+    for s in signals:
+        features=getFeat(s)
+        onsets.append(features)
+    df=pd.DataFrame(onsets)
+    feat_cols=[ 'onset'+str(i) for i in range(df.shape[1])]
+    df.columns=feat_cols
+    df["label"]=t
+    return df
+    
 def getOnsetDF(signals,t="u"):
     def getOnsets(x):
         spec = madmom.audio.spectrogram.Spectrogram(x, frame_size=300, hop_size=10)
