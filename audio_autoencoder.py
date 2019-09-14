@@ -1,66 +1,89 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[30]:
+
+
 from keras.layers import Input, Dense
 from keras.models import Model
-from keras.initializers import glorot_uniform
+from keras.initializers import glorot_uniform  # Or your initializer of choice
 from keras.datasets import mnist
-import numpy as np
-import random
-
+import keras.backend as K
 from keras.callbacks import TensorBoard
 
-input_dim=20000
+import numpy as np
+import random
+import mir_utils as miru
+import sounddevice as sd
+
+sr=40000 #sample rate
+input_dim=5000
+group_size=100
 # this is the size of our encoded representations
-encoding_dim = 1000  #floats -> compression factor of input_dim/encoding_dim
+encoding_dim = 100  #floats -> compression factor of input_dim/encoding_dim
 
 # this is our input placeholder
-input_img = Input(shape=(input_dim,))
+input_sample= Input(shape=(input_dim,))
 # "encoded" is the encoded representation of the input
-encoded = Dense(encoding_dim, activation='relu')(input_img)
+encoded = Dense(encoding_dim, activation='relu')(input_sample)
 # "decoded" is the lossy reconstruction of the input
-decoded = Dense(input_dim, activation='sigmoid')(encoded)
- 
+decoded = Dense(input_dim, activation='linear')(encoded)
+
 # this model maps an input to its reconstruction
-autoencoder = Model(input_img, decoded)
+autoencoder = Model(input_sample, decoded)
 
 # this model maps an input to its encoded representation
-encoder = Model(input_img, encoded)
+encoder = Model(input_sample, encoded)
 
-# create a placeholder for an encoded input
+# create a placeholder for an encoded (32-dimensional) input
 encoded_input = Input(shape=(encoding_dim,))
 # retrieve the last layer of the autoencoder model
 decoder_layer = autoencoder.layers[-1]
 # create the decoder model
 decoder = Model(encoded_input, decoder_layer(encoded_input))
 
-autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
-
-(x_train, _), (x_test, _) = mnist.load_data()
-
-x_train = x_train.astype('float32') / 255.
-x_test = x_test.astype('float32') / 255.
-x_train = x_train.reshape((len(x_train), np.prod(x_train.shape[1:])))
-x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
+autoencoder.compile(optimizer='adadelta', loss='mean_squared_error')
 
 
-print (x_train.shape)
-print (x_test.shape)
+# In[31]:
 
-Wsave = autoencoder.get_weights()
-for a in Wsave:
-    print(a.shape)
-for layer in autoencoder.layers:
-     print(layer.get_output_at(0).get_shape().as_list())
 
-print(autoencoder.summary())
+#takes an audio dict, desired length of samples and split percentage of test & train subsets
+#returns x_train,x_test,y_train,y_test
+def audioDictToNp(group_size=10,dur=10000,testFraction=0):
+    a=miru.loadAudioArrays()
+    X=[]
+    y=[]
+    for key,l in a.items():
+            for i in l:
+                if len(i)>dur:
+                    y.append(key)
+                    X.append(i[0:dur])
+    X=np.asarray(X)
+    y=np.asarray(y)
+    if testFraction==0:
+        return X,X,y,y
+    else:
+        from sklearn.model_selection import train_test_split
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=testFraction, random_state=42)
+        return X_train, X_test, y_train, y_test
+            
+x_train, x_test, y_train, y_test=audioDictToNp(group_size=group_size,dur=input_dim,testFraction=0.1)
 
-x_train=x_train[0:50]
-x_test=x_train[0:10]
-print (x_train.shape)
-print (x_test.shape)
+print("train,test shapes:",x_train.shape,x_test.shape)
+
+
+# In[33]:
+
+
 def train():
     initial_weights = autoencoder.get_weights()
-    weights = [glorot_uniform(seed=random.randint(0, 1000))(w.shape) if w.ndim > 1 else w for w in autoencoder.get_weights()]
-    autoencoder.set_weights(initial_weights)
-
+    k_eval = lambda placeholder: placeholder.eval(session=K.get_session())
+    new_weights = [k_eval(glorot_uniform()(w.shape)) for w in initial_weights]
+    
+    weights = [k_eval(glorot_uniform()(w.shape)) for w in initial_weights]
+#     autoencoder.set_weights(weights)
+    
     autoencoder.fit(x_train, x_train,
                     epochs=1000,
                     batch_size=10,
@@ -71,32 +94,67 @@ def train():
                    )
 train()
 
-
 # encode and decode some digits
 # note that we take them from the *test* set
-encoded_imgs = encoder.predict(x_test)
-decoded_imgs = decoder.predict(encoded_imgs)
+encoded_samples = encoder.predict(x_test)
+decoded_samples = decoder.predict(encoded_samples)
+print(autoencoder.summary())
+
+
+# In[34]:
+
 
 from keras.datasets import mnist
 import numpy as np
-# use Matplotlib (don't ask)
 import matplotlib.pyplot as plt
 
-n = 10  # how many digits we will display
+n = 9 # how many samples we will display
 plt.figure(figsize=(20, 4))
 for i in range(n):
     # display original
     ax = plt.subplot(2, n, i + 1)
-    plt.imshow(x_train[i].reshape(28, 28))
+    plt.imshow(x_train[i].reshape(50, int(input_dim/50)))
     plt.gray()
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
 
     # display reconstruction
     ax = plt.subplot(2, n, i + 1 + n)
-    plt.imshow(decoded_imgs[i].reshape(28, 28))
+    plt.imshow(decoded_samples[i].reshape(50, int(input_dim/50)))
     plt.gray()
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
 plt.show()
+
+
+# In[35]:
+
+
+from IPython.display import Audio, display
+from ipywidgets import widgets
+
+original_widgets = []
+for (audio) in x_train[0:10]:
+    out = widgets.Output()
+    with out:
+        display(Audio(data=audio, rate=sr))
+    original_widgets.append(out)
+oBox=widgets.HBox(original_widgets)
+
+
+decoded_widgets = []
+for (audio) in decoded_samples[0:10]:
+    out = widgets.Output()
+    with out:
+        display(Audio(data=audio, rate=sr))
+    decoded_widgets.append(out)
+dBox=widgets.HBox(decoded_widgets)
+
+widgets.VBox([oBox,dBox])
+
+
+# In[ ]:
+
+
+
 
