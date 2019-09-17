@@ -13,42 +13,44 @@ from scipy.io import loadmat
 from scipy.fftpack import fft
 from scipy.io import wavfile 
 
-import madmom 
-import sounddevice as sd
-
 from pathlib import Path
 import numpy, scipy, matplotlib.pyplot as plt, sklearn, urllib, IPython.display as ipd
 import librosa, librosa.display
-import stanford_mir; stanford_mir.init()
-
-import loading as load
+import mir_utils as miru
 import seaborn as sns
-a=load.loadAudioArrays()
+a=miru.loadAudioArrays()
 
-kick_signals=a["kicks"]
-snare_signals=a["snares"]
-clap_signals=a["claps"]
+keys=['kick',
+ 'rim',
+ 'tom_high',
+ 'snare',
+ 'hihat_open']
 
 def extract_features(signal):
-    return [
-        librosa.feature.zero_crossing_rate(signal)[0, 3],
-        librosa.feature.spectral_centroid(signal,)[0, 3],
-    ]
+    if len(signal)>5000:
+        signal=signal[0:5000]
+        l=signal.shape[0]
+        zc=librosa.feature.zero_crossing_rate(signal,frame_length=l+1, hop_length=l,)[0,0],
+        spec_center=librosa.feature.spectral_centroid(signal,sr=40000,n_fft=l+1, hop_length=l)[0,0],
+        zcl=np.log(zc[0])
+        scl=spec_center[0]
+        ret=[scl,zcl]
+        # print(ret)
+        return ret
+    else:
+        return [0,0]
 
-kick_features = numpy.array([extract_features(x) for x in kick_signals])
-snare_features = numpy.array([extract_features(x) for x in snare_signals])
-clap_features = numpy.array([extract_features(x) for x in clap_signals])
-
-scaler = sklearn.preprocessing.MinMaxScaler(feature_range=(-1, 1))
-
-kickDF=pd.DataFrame(kick_features,columns={"zero_cross","centroid"})
-kickDF["type"]="kick"
-snareDF=pd.DataFrame(snare_features,columns={"zero_cross","centroid"})
-snareDF["type"]="snare"
-clapDF=pd.DataFrame(clap_features,columns={"zero_cross","centroid"})
-clapDF["type"]="clap"
+def makefeatDF(k):
+    signals=a[k]
+    features=numpy.array([extract_features(x) for x in signals])
+    df=pd.DataFrame(features,columns={"log(zero_cross)","centroid"})
+    df["type"]=k
+    return df
 
 
-drumDF=pd.concat([snareDF,kickDF,clapDF])
-sns.lmplot(x="zero_cross",y="centroid",hue="type",fit_reg=False,data=drumDF) 
+drumDF=pd.concat([makefeatDF(key) for key in keys])
+drumDF=drumDF[drumDF["centroid"]!=0]
+drumDF.to_csv("zc_and_centroid.csv",index=False)
+sns.lmplot(x="log(zero_cross)",y="centroid",hue="type",fit_reg=False,data=drumDF) 
+
 plt.show()

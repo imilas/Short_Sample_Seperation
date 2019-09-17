@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[30]:
+# In[42]:
 
 
 from keras.layers import Input, Dense
 from keras.models import Model
 from keras.initializers import glorot_uniform  # Or your initializer of choice
 from keras.datasets import mnist
+from keras.callbacks import ModelCheckpoint
 import keras.backend as K
 from keras.callbacks import TensorBoard
 
@@ -42,10 +43,15 @@ decoder_layer = autoencoder.layers[-1]
 # create the decoder model
 decoder = Model(encoded_input, decoder_layer(encoded_input))
 
-autoencoder.compile(optimizer='adadelta', loss='mean_squared_error')
+autoencoder.compile(optimizer='adadelta', loss='mean_squared_error', metrics=['accuracy'])
+
+# checkpoint
+filepath="./models/linear/weights-{epoch:02d}-{val_acc:.2f}.hdf5"
+checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+callbacks_list = [checkpoint]
 
 
-# In[31]:
+# In[43]:
 
 
 #takes an audio dict, desired length of samples and split percentage of test & train subsets
@@ -56,7 +62,7 @@ def audioDictToNp(group_size=10,dur=10000,testFraction=0):
     y=[]
     for key,l in a.items():
             for i in l:
-                if len(i)>dur:
+                if len(i)>dur and key!="asdfkick":
                     y.append(key)
                     X.append(i[0:dur])
     X=np.asarray(X)
@@ -73,7 +79,7 @@ x_train, x_test, y_train, y_test=audioDictToNp(group_size=group_size,dur=input_d
 print("train,test shapes:",x_train.shape,x_test.shape)
 
 
-# In[33]:
+# In[ ]:
 
 
 def train():
@@ -90,7 +96,8 @@ def train():
                     shuffle=True,
                     validation_data=(x_test, x_test),
                     verbose=1,
-                    callbacks=[TensorBoard(log_dir='/tmp/autoencoder')]
+                    #callbacks=[TensorBoard(log_dir='/tmp/autoencoder')]
+                    callbacks=callbacks_list,
                    )
 train()
 

@@ -2,13 +2,14 @@ from pathlib import Path
 import numpy, scipy, matplotlib.pyplot as plt, sklearn, urllib, IPython.display as ipd
 import librosa, librosa.display
 import stanford_mir; stanford_mir.init()
+
+import mir_utils as mi
 kick_signals = [
-    librosa.load(p)[0] for p in Path().glob('audio/drum_samples/train/kick_*.mp3')
+    librosa.load(p)[0] for p in Path().glob('dk_data/kick_*.mp3')
 ]
 snare_signals = [
-    librosa.load(p)[0] for p in Path().glob('audio/drum_samples/train/snare_*.mp3')
+    librosa.load(p)[0] for p in Path().glob('dk_data/snare_*.mp3')
 ]
-
 
 def extract_features(signal):
     return [

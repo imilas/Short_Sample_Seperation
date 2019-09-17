@@ -16,17 +16,18 @@ rootdir = os.getcwd()
 #load a sample, if given path, load it,
 #if no path but given type, randomly pick one of the type
 #else randomly pick type and load one of the type
+samples="dk_data"
 def loadSample(path="",soundType="",sr=40000):
         if path:
                 file=path
                 y, sr = librosa.load(path,sr)
         elif soundType:
-                path="./samples/%s/"%(soundType,)
+                path="./%s/%s/"%(samples,soundType,)
                 file=random.choice(os.listdir(path))
                 y, sr = librosa.load(path+file,sr)
         else:
-                soundType=random.choice(os.listdir("./samples"))
-                path="./samples/%s/"%(soundType,)
+                soundType=random.choice(os.listdir("./"+samples))
+                path="./%s/%s/"%(samplessoundType,)
                 file=random.choice(os.listdir(path))
                 y, sr = librosa.load(path+file,sr)               
         return y,sr,file,path
