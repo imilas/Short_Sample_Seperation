@@ -1,3 +1,4 @@
 *.dill
 *.mat
 *.hdf5
+*.csv

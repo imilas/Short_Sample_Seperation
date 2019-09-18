@@ -22,16 +22,15 @@ def fitMels(signals,t="unknown_drum",num_feats=2):
     df["label"]=t
     return df
 
-def fitFreq(signals,t="unknown_drum",frameLen=1000,hopLen=4,num_feats=2,numFrames=4):
+def fitFreq(signals,t="unknown_drum",frameLen=100,hopLen=100,numFrames=100):
     hopLen=frameLen-1
     def getFeat(x):
-        fs=madmom.audio.signal.FramedSignal(x, sample_rate=48000,
+        fs=madmom.audio.signal.FramedSignal(x, sample_rate=40000,
             frame_size=frameLen,hop_size=hopLen)
         feat=np.zeros(frameLen)
-        for frame in fs[0:numFrames]:
+        for frame in fs:
             X=np.absolute(scipy.fft(frame))
             feat+=X
-#             print(len(X))
         return feat
     onsets=[]
     for s in signals:
@@ -45,9 +44,9 @@ def fitFreq(signals,t="unknown_drum",frameLen=1000,hopLen=4,num_feats=2,numFrame
     
 def getOnsetDF(signals,t="u"):
     def getOnsets(x):
-        spec = madmom.audio.spectrogram.Spectrogram(x, frame_size=300, hop_size=10)
+        spec = madmom.audio.spectrogram.Spectrogram(x, frame_size=300, hop_size=300)
         X=madmom.features.onsets.high_frequency_content(spec)
-        return X 
+        return X[0:100] 
     onsets=[]
     for s in signals:
         onset=getOnsets(s)
@@ -59,9 +58,9 @@ def getOnsetDF(signals,t="u"):
     df["label"]=t
     return df
 
-def fitPolyWave(signals,t="unknown_drum",frameLen=20,hopLen=19,polyDeg=1,num_feats=10000):
+def fitPolyWave(signals,t="unknown_drum",frameLen=2000,hopLen=1600,polyDeg=2,num_feats=100):
     def getFeat(x):
-        fs=madmom.audio.signal.FramedSignal(x, sample_rate=48000,
+        fs=madmom.audio.signal.FramedSignal(x, sample_rate=40000,
             frame_size=frameLen,hop_size=hopLen)
         feats=[]
         for frame in fs[0:num_feats]:
