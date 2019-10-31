@@ -12,6 +12,10 @@ from sklearn.manifold import TSNE
 import time
 import os
 import librosa, librosa.display
+
+from multiprocessing import Pool
+
+              
 rootdir = os.getcwd()
 #load a sample, if given path, load it,
 #if no path but given type, randomly pick one of the type
@@ -70,6 +74,31 @@ def loadAudioArrays(load=True,save=True,path="dk_samples"):
                         dill.dump(f,file)
                 return f
 
+def audioFrames(load=True,save=True,path="dk_samples"):
+        if load==True:
+                try:
+                        file=open("audio_frame.dill","rb")
+                        f=dill.load(file)
+                        return f
+                except:
+                        print("nothing to load")  
+        else:   
+                df=pd.DataFrame(columns=["label","path","audio"])
+                for subdir, dirs, files in os.walk("./dk_data"):
+                        print("loading\n\n\n" + subdir) 
+                        for file in files: 
+                                filepath = subdir + os.sep + file
+                                try:
+                                        y, sr = librosa.load(filepath,sr=41000)
+                                        label=subdir.split("/")[-1]
+                                        df=df.append({"label":label,"path":filepath,"audio":y},ignore_index=True)
+                                except:
+                                        continue
+                if(save):        
+                        file=open("audio_frame.dill","wb")
+                        dill.dump(df,file)
+                return df
+
 
 #load a n-sized subset of samples longer than dur
 def loadAudioSubset(n,dur=1000):
@@ -105,7 +134,8 @@ def playDict(f):
                         sd.play(trimmed,40000,blocking=True,blocksize=1000)
 
 #makes a t-sne for any dataframe of features
-def plotTSNE(df,perp=2):
+def plotTSNE(df,perp=2,fsize=(5,8)):
+    df=df.drop(columns=["path"],axis=1)
     data_subset=df.loc[:,df.columns!="label"].values
     data_subset=np.absolute(data_subset)
     tsne = TSNE(n_components=2, verbose=0, perplexity=perp, n_iter=3000)
@@ -116,9 +146,8 @@ def plotTSNE(df,perp=2):
     df['tsne-2d-one'] = tsne_results[:,0]
     df['tsne-2d-two'] = tsne_results[:,1]
 
-    plt.figure(figsize=(8,5))
-
-    flatui = ["#000000", "#3498db", "#00AA00", "#e74c3c", "#FF49FF", "#2ecc71"]
+    plt.figure(figsize=fsize)
+    flatui = ["#9b59b6", "#0f28fa", "#06d400", "#e74c3c", "#001111", "#2ecc71"]
     sns.set_palette(sns.color_palette(flatui))
 
     sns.scatterplot(
@@ -135,5 +164,6 @@ def playSample(sample,sr=40000):
 
 if __name__=="__main__":
         # f=loadAudioArrays()
-        f=loadAudioSubset(10)
-        playDict(f)   
+        df=audioFrames(load=False)
+
+        print(df) 

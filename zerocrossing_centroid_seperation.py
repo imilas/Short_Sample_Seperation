@@ -27,8 +27,8 @@ keys=['kick',
  'hihat_open']
 
 def extract_features(signal):
-    if len(signal)>10000:
-        signal=signal[0:10000]
+    if len(signal)>1000:
+        signal=signal[0:1000]
         l=signal.shape[0]
         zc=librosa.feature.zero_crossing_rate(signal,frame_length=l+1, hop_length=l,)[0,0],
         spec_center=librosa.feature.spectral_centroid(signal,sr=40000,n_fft=l+1, hop_length=l)[0,0],
